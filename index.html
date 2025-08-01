@@ -1,20 +1,26 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>تسجيل الدخول عبر Google</title>
+  <meta charset="UTF-8" />
+  <title>تسجيل الدخول برقم الهاتف</title>
 </head>
 <body>
 
-  <h2>تسجيل الدخول عبر Google</h2>
-  <button id="googleLoginBtn">سجّل باستخدام Google</button>
+  <h2>تسجيل الدخول برقم الهاتف</h2>
+
+  <input type="tel" id="phoneNumber" placeholder="أدخل رقم الهاتف (مثلاً +967...)">
+  <div id="recaptcha-container"></div>
+  <button id="sendCodeBtn">إرسال رمز التحقق</button>
+
+  <br><br>
+
+  <input type="text" id="verificationCode" placeholder="أدخل رمز التحقق">
+  <button id="verifyCodeBtn">تحقق من الرمز</button>
 
   <script type="module">
-    // استيراد مكتبات Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-    // بيانات مشروعك في Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBuQD_XCXPI2gWsh_FMloVLRZfpS7JfsdY",
       authDomain: "wegdan-8b278.firebaseapp.com",
@@ -24,24 +30,49 @@
       appId: "1:566212166786:web:7c1feac4a99d42696ca09b"
     };
 
-    // تهيئة Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
 
-    // عند الضغط على زر Google
-    document.getElementById("googleLoginBtn").addEventListener("click", () => {
-      signInWithPopup(auth, provider)
-        .then((result) => {
-          const user = result.user;
-          alert("مرحباً " + user.displayName + " 🎉");
-          console.log("معلومات المستخدم:", user);
-        })
-        .catch((error) => {
-          alert("حدث خطأ: " + error.message);
+    // إعداد reCAPTCHA
+    window.recaptchaVerifier = new RecaptchaVerifier('recaptcha-container', {
+      'size': 'normal',
+      'callback': (response) => {
+        // reCAPTCHA تم اجتيازه، يمكن الضغط على زر الإرسال
+        console.log('reCAPTCHA تم اجتيازه');
+      },
+      'expired-callback': () => {
+        // reCAPTCHA انتهت صلاحيته
+        alert('يرجى إعادة التحقق من reCAPTCHA');
+      }
+    }, auth);
+
+    document.getElementById('sendCodeBtn').addEventListener('click', () => {
+      const phoneNumber = document.getElementById('phoneNumber').value;
+      const appVerifier = window.recaptchaVerifier;
+
+      signInWithPhoneNumber(auth, phoneNumber, appVerifier)
+        .then((confirmationResult) => {
+          window.confirmationResult = confirmationResult;
+          alert('تم إرسال رمز التحقق إلى رقم الهاتف');
+        }).catch((error) => {
+          alert('خطأ في إرسال رمز التحقق: ' + error.message);
           console.error(error);
         });
     });
+
+    document.getElementById('verifyCodeBtn').addEventListener('click', () => {
+      const code = document.getElementById('verificationCode').value;
+
+      window.confirmationResult.confirm(code).then((result) => {
+        const user = result.user;
+        alert('تم تسجيل الدخول! مرحباً ' + (user.phoneNumber || 'المستخدم'));
+        console.log(user);
+      }).catch((error) => {
+        alert('خطأ في رمز التحقق: ' + error.message);
+        console.error(error);
+      });
+    });
+
   </script>
 
 </body>
